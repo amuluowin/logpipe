@@ -73,6 +73,7 @@ LFLAGS		=	$(_LFLAGS) \
 			-ldl \
 			-lz \
 			-lm \
+			-liconv \
 
 ###### 额外宏定义区
 CLEAN_ADDITION	=
