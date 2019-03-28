@@ -1,6 +1,6 @@
 FROM centos AS build-env
 
-RUN yum install gcc gcc-c++ make zlib zlib-devel -y
+RUN yum install gcc gcc-c++ wget make zlib zlib-devel -y
 
 ADD ./ /code
 
