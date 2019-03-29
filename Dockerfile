@@ -16,6 +16,8 @@ RUN cd /code/src-plugins && make -f makefile.Linux logpipe-input-file.so logpipe
 
 FROM debian:stable-slim
 
+ENV TZ=Asia/Shanghai
+
 COPY --from=build-env /root/bin/logpipe /usr/local/bin/logpipe
 COPY --from=build-env /root/lib/liblogpipe_api.so /lib/x86_64-linux-gnu/liblogpipe_api.so
 COPY --from=build-env /root/lib/libiconv.so.2 /lib/x86_64-linux-gnu/libiconv.so.2
