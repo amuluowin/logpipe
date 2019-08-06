@@ -39,6 +39,7 @@ c_FILE		=	\
 			logpipe-output-ek.c \
 			logpipe-output-kafka.c \
 			logpipe-output-ingeek.c \
+			kafka_with_zookeeper.c \
 
 ###### 目标文件、安装目录配置区
 include makeinstall
@@ -70,6 +71,7 @@ CLEAN_ADDITION	=	fasterhttp.o \
 			logpipe-output-hdfs.so \
 			logpipe-output-kafka.so \
 			logpipe-output-ingeek.so \
+			logpipe-output-kafka-with-zookeeper.so \
 
 ###### 加载mktpl模板库
 # 最终目标列表
@@ -172,20 +174,38 @@ endif
 
 
 ###### 目标文件依赖关系
+logpipe-input-exec.so		:	logpipe-input-exec.o
+	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+
 logpipe-input-file.so		:	logpipe-input-file.o
 	$(CC) -o $@ logpipe-input-file.o $(SOFLAGS) $(LFLAGS)
-
-logpipe-output-file.so		:	logpipe-output-file.o
-	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-input-tcp.so		:	logpipe-input-tcp.o
 	$(CC) -o $@ logpipe-input-tcp.o $(SOFLAGS) $(LFLAGS)
 
+logpipe-filter-log.so	:	logpipe-filter-log.o
+	$(CC) -o $@ logpipe-filter-log.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-filter-pack-metadata.so	:	logpipe-filter-pack-metadata.o
+	$(CC) -o $@ logpipe-filter-pack-metadata.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-filter-unpack-metadata.so	:	logpipe-filter-unpack-metadata.o
+	$(CC) -o $@ logpipe-filter-unpack-metadata.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-output-file.so		:	logpipe-output-file.o
+	$(CC) -o $@ logpipe-output-file.o $(SOFLAGS) $(LFLAGS)
+
 logpipe-output-tcp.so		:	logpipe-output-tcp.o
 	$(CC) -o $@ logpipe-output-tcp.o $(SOFLAGS) $(LFLAGS)
 
-logpipe-input-exec.so		:	logpipe-input-exec.o
-	$(CC) -o $@ logpipe-input-exec.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
+	$(CC) -o $@ logpipe-output-ingeek.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-output-linemode-template.so	:	logpipe-output-linemode-template.o
+	$(CC) -o $@ logpipe-output-linemode-template.o $(SOFLAGS) $(LFLAGS)
+
+logpipe-output-stdout.so	:	logpipe-output-stdout.o
+	$(CC) -o $@ logpipe-output-stdout.o $(SOFLAGS) $(LFLAGS)
 
 fasterhttp.o			:	fasterhttp.c
 	$(CC) $(CFLAGS) -c fasterhttp.c
@@ -197,22 +217,42 @@ logpipe-output-hdfs.o		:	logpipe-output-hdfs.c
 
 LFLAGS_hdfs			=	$(LFLAGS) -L/home/hdfs/expack/hadoop/lib/native -lhdfs -L$(HOME)/expack/jdk1.8.0_152/jre/lib/amd64/server -ljvm
 
-logpipe-output-ek.so		:	logpipe-output-ek.o fasterhttp.o
-	$(CC) -o $@ logpipe-output-ek.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-es.so		:	logpipe-output-es.o fasterhttp.o
+	$(CC) -o $@ logpipe-output-es.o fasterhttp.o $(SOFLAGS) $(LFLAGS)
 
 logpipe-output-hdfs.so		:	logpipe-output-hdfs.o
 	$(CC) -o $@ logpipe-output-hdfs.o $(SOFLAGS) $(LFLAGS_hdfs)
 
 CFLAGS_kafka			=	$(CFLAGS) -I$(HOME)/include/librdkafka
+CFLAGS_kafka_with_zookeeper	=	$(CFLAGS) -I$(HOME)/include/librdkafka -I$(HOME)/include/zookeeper
+
+kafka_with_zookeeper.o			:	kafka_with_zookeeper.c
+	$(CC) $(CFLAGS_kafka_with_zookeeper) -c kafka_with_zookeeper.c
+
+LFLAGS_kafka			=	$(LFLAGS) -L$(HOME)/lib -lrdkafka
+LFLAGS_kafka_zookeeper		=	$(LFLAGS) -L$(HOME)/lib -lrdkafka -lzookeeper_mt
+
+logpipe-input-kafka.o		:	logpipe-input-kafka.c
+	$(CC) $(CFLAGS_kafka) -c logpipe-input-kafka.c
+
+logpipe-input-kafka-with-zookeeper.o:	logpipe-input-kafka.c
+	$(CC) $(CFLAGS_kafka_with_zookeeper) -D_WITH_ZOOKEEPER -o logpipe-input-kafka-with-zookeeper.o -c logpipe-input-kafka.c
+
+logpipe-input-kafka.so		:	logpipe-input-kafka.o
+	$(CC) -o $@ logpipe-input-kafka.o $(SOFLAGS) $(LFLAGS_kafka)
+
+logpipe-input-kafka-with-zookeeper.so:	logpipe-input-kafka-with-zookeeper.o kafka_with_zookeeper.o
+	$(CC) -o $@ logpipe-input-kafka-with-zookeeper.o kafka_with_zookeeper.o $(SOFLAGS) $(LFLAGS_kafka_zookeeper)
 
 logpipe-output-kafka.o		:	logpipe-output-kafka.c
 	$(CC) $(CFLAGS_kafka) -c logpipe-output-kafka.c
 
-LFLAGS_kafka			=	$(LFLAGS) -L$(HOME)/lib -lrdkafka
+logpipe-output-kafka-with-zookeeper.o:	logpipe-output-kafka.c
+	$(CC) $(CFLAGS_kafka_with_zookeeper) -D_WITH_ZOOKEEPER -o logpipe-output-kafka-with-zookeeper.o -c logpipe-output-kafka.c
 
 logpipe-output-kafka.so		:	logpipe-output-kafka.o
 	$(CC) -o $@ logpipe-output-kafka.o $(SOFLAGS) $(LFLAGS_kafka)
 
-logpipe-output-ingeek.so	:	logpipe-output-ingeek.o
-	$(CC) -o $@ logpipe-output-ingeek.o $(SOFLAGS) $(LFLAGS)
+logpipe-output-kafka-with-zookeeper.so:	logpipe-output-kafka-with-zookeeper.o kafka_with_zookeeper.o
+	$(CC) -o $@ logpipe-output-kafka-with-zookeeper.o kafka_with_zookeeper.o $(SOFLAGS) $(LFLAGS_kafka_zookeeper)
 
