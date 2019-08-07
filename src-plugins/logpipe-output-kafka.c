@@ -6,7 +6,7 @@
 #include "kafka_with_zookeeper.h"
 #endif
 
-int	__LOGPIPE_OUTPUT_KAFKA_VERSION_0_1_0 = 1 ;
+int __LOGPIPE_OUTPUT_KAFKA_VERSION_0_1_0 = 1;
 
 /* 启动zookeeper
 cd ~/zookeeper
@@ -57,304 +57,314 @@ rmlog ; rm -f logpipe_case6_input_file_and_output_kafka.log.*
 struct OutputPluginContext
 {
 #ifdef _WITH_ZOOKEEPER
-	char				*zookeeper ;
-	zhandle_t			*zh ;
-	struct KafkaWatcherContext	kafka_watcher_context ;
+	char *zookeeper;
+	zhandle_t *zh;
+	struct KafkaWatcherContext kafka_watcher_context;
 #else
-	char				*bootstrap_servers ;
+	char *bootstrap_servers;
 #endif
-	char				*topic ;
-	
-	rd_kafka_conf_t			*kafka_conf ;
-	rd_kafka_t			*kafka ;
-	rd_kafka_topic_t		*kafka_topic ;
-	
-	char				*uncompress_algorithm ;
-	
-} ;
+	char *topic;
 
-static void dr_msg_cb( rd_kafka_t *kafka , const rd_kafka_message_t *kafka_message , void *opaque )
+	rd_kafka_conf_t *kafka_conf;
+	rd_kafka_t *kafka;
+	rd_kafka_topic_t *kafka_topic;
+
+	char *uncompress_algorithm;
+};
+
+static void dr_msg_cb(rd_kafka_t *kafka, const rd_kafka_message_t *kafka_message, void *opaque)
 {
-	if( kafka_message->err )
+	if (kafka_message->err)
 	{
-		ERRORLOGC( "Message delivery failed , err[%d][%s]" , kafka_message->err , rd_kafka_err2str(kafka_message->err) )
+		ERRORLOGC("Message delivery failed , err[%d][%s]", kafka_message->err, rd_kafka_err2str(kafka_message->err))
 	}
 	else
 	{
-		INFOLOGC( "Message delivery ok , [%d]bytes [%d]partition" , kafka_message->len , kafka_message->partition )
+		INFOLOGC("Message delivery ok , [%d]bytes [%d]partition", kafka_message->len, kafka_message->partition)
 	}
-	
+
 	return;
 }
 
-funcLoadOutputPluginConfig LoadOutputPluginConfig ;
-int LoadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , struct LogpipePluginConfigItem *p_plugin_config_items , void **pp_context )
+funcLoadOutputPluginConfig LoadOutputPluginConfig;
+int LoadOutputPluginConfig(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, struct LogpipePluginConfigItem *p_plugin_config_items, void **pp_context)
 {
-	struct OutputPluginContext	*p_plugin_ctx = NULL ;
-	
+	struct OutputPluginContext *p_plugin_ctx = NULL;
+
 	/* 申请内存以存放插件上下文 */
-	p_plugin_ctx = (struct OutputPluginContext *)malloc( sizeof(struct OutputPluginContext) ) ;
-	if( p_plugin_ctx == NULL )
+	p_plugin_ctx = (struct OutputPluginContext *)malloc(sizeof(struct OutputPluginContext));
+	if (p_plugin_ctx == NULL)
 	{
-		ERRORLOGC( "malloc failed , errno[%d]" , errno )
+		ERRORLOGC("malloc failed , errno[%d]", errno)
 		return -1;
 	}
-	memset( p_plugin_ctx , 0x00 , sizeof(struct OutputPluginContext) );
-	
+	memset(p_plugin_ctx, 0x00, sizeof(struct OutputPluginContext));
+
 #ifdef _WITH_ZOOKEEPER
-	p_plugin_ctx->zookeeper = QueryPluginConfigItem( p_plugin_config_items , "zookeeper" ) ;
-	INFOLOGC( "zookeeper[%s]" , p_plugin_ctx->zookeeper )
-	if( p_plugin_ctx->zookeeper == NULL || p_plugin_ctx->zookeeper[0] == '\0' )
+	p_plugin_ctx->zookeeper = QueryPluginConfigItem(p_plugin_config_items, "zookeeper");
+	INFOLOGC("zookeeper[%s]", p_plugin_ctx->zookeeper)
+	if (p_plugin_ctx->zookeeper == NULL || p_plugin_ctx->zookeeper[0] == '\0')
 	{
-		ERRORLOGC( "expect config for 'zookeeper'" )
+		ERRORLOGC("expect config for 'zookeeper'")
 		return -1;
 	}
 #else
-	p_plugin_ctx->bootstrap_servers = QueryPluginConfigItem( p_plugin_config_items , "bootstrap_servers" ) ;
-	INFOLOGC( "bootstrap_servers[%s]" , p_plugin_ctx->bootstrap_servers )
-	if( p_plugin_ctx->bootstrap_servers == NULL || p_plugin_ctx->bootstrap_servers[0] == '\0' )
+	p_plugin_ctx->bootstrap_servers = QueryPluginConfigItem(p_plugin_config_items, "bootstrap_servers");
+	INFOLOGC("bootstrap_servers[%s]", p_plugin_ctx->bootstrap_servers)
+	if (p_plugin_ctx->bootstrap_servers == NULL || p_plugin_ctx->bootstrap_servers[0] == '\0')
 	{
-		ERRORLOGC( "expect config for 'bootstrap_servers'" )
+		ERRORLOGC("expect config for 'bootstrap_servers'")
 		return -1;
 	}
 #endif
-	
-	p_plugin_ctx->topic = QueryPluginConfigItem( p_plugin_config_items , "topic" ) ;
-	INFOLOGC( "topic[%s]" , p_plugin_ctx->topic )
-	if( p_plugin_ctx->topic == NULL || p_plugin_ctx->topic[0] == '\0' )
+
+	p_plugin_ctx->topic = QueryPluginConfigItem(p_plugin_config_items, "topic");
+	INFOLOGC("topic[%s]", p_plugin_ctx->topic)
+	if (p_plugin_ctx->topic == NULL || p_plugin_ctx->topic[0] == '\0')
 	{
-		ERRORLOGC( "expect config for 'topic'" )
+		ERRORLOGC("expect config for 'topic'")
 		return -1;
 	}
-	
-	p_plugin_ctx->uncompress_algorithm = QueryPluginConfigItem( p_plugin_config_items , "uncompress_algorithm" ) ;
-	if( p_plugin_ctx->uncompress_algorithm )
+
+	p_plugin_ctx->uncompress_algorithm = QueryPluginConfigItem(p_plugin_config_items, "uncompress_algorithm");
+	if (p_plugin_ctx->uncompress_algorithm)
 	{
-		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
+		if (STRCMP(p_plugin_ctx->uncompress_algorithm, ==, "deflate"))
 		{
 			;
 		}
 		else
 		{
-			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
+			ERRORLOGC("uncompress_algorithm[%s] invalid", p_plugin_ctx->uncompress_algorithm)
 			return -1;
 		}
 	}
-	INFOLOGC( "uncompress_algorithm[%s]" , p_plugin_ctx->uncompress_algorithm )
-	
+	INFOLOGC("uncompress_algorithm[%s]", p_plugin_ctx->uncompress_algorithm)
+
 	/* 设置插件环境上下文 */
-	(*pp_context) = p_plugin_ctx ;
-	
+	(*pp_context) = p_plugin_ctx;
+
 	return 0;
 }
 
-funcInitOutputPluginContext InitOutputPluginContext ;
-int InitOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+funcInitOutputPluginContext InitOutputPluginContext;
+int InitOutputPluginContext(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context)
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
-	rd_kafka_conf_res_t		kafka_conf_res ;
-	char				errstr[ 512 ] ;
-	
-	p_plugin_ctx->kafka_conf = rd_kafka_conf_new() ;
-	if( p_plugin_ctx->kafka_conf == NULL )
+	struct OutputPluginContext *p_plugin_ctx = (struct OutputPluginContext *)p_context;
+
+	rd_kafka_conf_res_t kafka_conf_res;
+	char errstr[512];
+
+	p_plugin_ctx->kafka_conf = rd_kafka_conf_new();
+	if (p_plugin_ctx->kafka_conf == NULL)
 	{
-		ERRORLOGC( "rd_kafka_conf_new failed" )
+		ERRORLOGC("rd_kafka_conf_new failed")
 		return -1;
 	}
-	
+
 #ifdef _WITH_ZOOKEEPER
-	p_plugin_ctx->zh = zookeeper_init( p_plugin_ctx->zookeeper , & KafkaWatcher , 10000 , 0 , & (p_plugin_ctx->kafka_watcher_context) , 0 ) ;
-	if( p_plugin_ctx->zh == NULL )
+	p_plugin_ctx->zh = zookeeper_init(p_plugin_ctx->zookeeper, &KafkaWatcher, 10000, 0, &(p_plugin_ctx->kafka_watcher_context), 0);
+	if (p_plugin_ctx->zh == NULL)
 	{
-		ERRORLOGC( "zookeeper_init failed" )
+		ERRORLOGC("zookeeper_init failed")
 		return -1;
 	}
 	else
 	{
-		INFOLOGC( "zookeeper_init '%s' ok" , p_plugin_ctx->zookeeper )
+		INFOLOGC("zookeeper_init '%s' ok", p_plugin_ctx->zookeeper)
 	}
-	
-	GetBrokerListFromZookeeper( p_plugin_ctx->zh , & (p_plugin_ctx->kafka_watcher_context) ) ;
-	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "metadata.broker.list" , p_plugin_ctx->kafka_watcher_context.brokers , errstr , sizeof(errstr) ) ;
-	if( kafka_conf_res != RD_KAFKA_CONF_OK )
+
+	GetBrokerListFromZookeeper(p_plugin_ctx->zh, &(p_plugin_ctx->kafka_watcher_context));
+	kafka_conf_res = rd_kafka_conf_set(p_plugin_ctx->kafka_conf, "metadata.broker.list", p_plugin_ctx->kafka_watcher_context.brokers, errstr, sizeof(errstr));
+	if (kafka_conf_res != RD_KAFKA_CONF_OK)
 	{
-		ERRORLOGC( "rd_kafka_conf_set metadata.broker.list '%s' failed[%d] , errstr[%s]" , p_plugin_ctx->kafka_watcher_context.brokers , kafka_conf_res , errstr )
+		ERRORLOGC("rd_kafka_conf_set metadata.broker.list '%s' failed[%d] , errstr[%s]", p_plugin_ctx->kafka_watcher_context.brokers, kafka_conf_res, errstr)
 		return -1;
 	}
 	else
 	{
-		INFOLOGC( "rd_kafka_conf_set metadata.broker.list '%s' ok" , p_plugin_ctx->kafka_watcher_context.brokers )
+		INFOLOGC("rd_kafka_conf_set metadata.broker.list '%s' ok", p_plugin_ctx->kafka_watcher_context.brokers)
 	}
 #else
-	kafka_conf_res = rd_kafka_conf_set( p_plugin_ctx->kafka_conf , "bootstrap.servers" , p_plugin_ctx->bootstrap_servers , errstr , sizeof(errstr) ) ;
-	if( kafka_conf_res != RD_KAFKA_CONF_OK )
+	kafka_conf_res = rd_kafka_conf_set(p_plugin_ctx->kafka_conf, "bootstrap.servers", p_plugin_ctx->bootstrap_servers, errstr, sizeof(errstr));
+	if (kafka_conf_res != RD_KAFKA_CONF_OK)
 	{
-		ERRORLOGC( "rd_kafka_conf_set bootstrap.servers '%s' failed[%d] , errstr[%s]" , p_plugin_ctx->bootstrap_servers , kafka_conf_res , errstr )
+		ERRORLOGC("rd_kafka_conf_set bootstrap.servers '%s' failed[%d] , errstr[%s]", p_plugin_ctx->bootstrap_servers, kafka_conf_res, errstr)
 		return -1;
 	}
 	else
 	{
-		INFOLOGC( "rd_kafka_conf_set bootstrap.servers '%s' ok" , p_plugin_ctx->bootstrap_servers )
+		INFOLOGC("rd_kafka_conf_set bootstrap.servers '%s' ok", p_plugin_ctx->bootstrap_servers)
 	}
 #endif
-	
-	rd_kafka_conf_set_dr_msg_cb( p_plugin_ctx->kafka_conf , dr_msg_cb );
-	
-	p_plugin_ctx->kafka = rd_kafka_new( RD_KAFKA_PRODUCER , p_plugin_ctx->kafka_conf , errstr , sizeof(errstr) ) ;
-	if( p_plugin_ctx->kafka == NULL )
+
+	rd_kafka_conf_set_dr_msg_cb(p_plugin_ctx->kafka_conf, dr_msg_cb);
+
+	p_plugin_ctx->kafka = rd_kafka_new(RD_KAFKA_PRODUCER, p_plugin_ctx->kafka_conf, errstr, sizeof(errstr));
+	if (p_plugin_ctx->kafka == NULL)
 	{
-		ERRORLOGC( "rd_kafka_new failed , errstr[%s]" , errstr )
+		ERRORLOGC("rd_kafka_new failed , errstr[%s]", errstr)
 		return -1;
 	}
-	
+
 #ifdef _WITH_ZOOKEEPER
-	p_plugin_ctx->kafka_watcher_context.kafka = p_plugin_ctx->kafka ;
+	p_plugin_ctx->kafka_watcher_context.kafka = p_plugin_ctx->kafka;
 #endif
-	
-	p_plugin_ctx->kafka_topic = rd_kafka_topic_new( p_plugin_ctx->kafka , p_plugin_ctx->topic , NULL ) ;
-	if( p_plugin_ctx->kafka_topic == NULL )
+
+	p_plugin_ctx->kafka_topic = rd_kafka_topic_new(p_plugin_ctx->kafka, p_plugin_ctx->topic, NULL);
+	if (p_plugin_ctx->kafka_topic == NULL)
 	{
-		ERRORLOGC( "rd_kafka_topic_new failed , last_error[%s]" , rd_kafka_err2str(rd_kafka_last_error()) )
-		rd_kafka_destroy( p_plugin_ctx->kafka );
+		ERRORLOGC("rd_kafka_topic_new failed , last_error[%s]", rd_kafka_err2str(rd_kafka_last_error()))
+		rd_kafka_destroy(p_plugin_ctx->kafka);
 		return -1;
 	}
-	
+
 	return 0;
 }
 
 funcOnOutputPluginIdle OnOutputPluginIdle;
-int OnOutputPluginIdle( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+int OnOutputPluginIdle(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context)
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
-	rd_kafka_poll( p_plugin_ctx->kafka , 0 );
-	
+	struct OutputPluginContext *p_plugin_ctx = (struct OutputPluginContext *)p_context;
+
+	rd_kafka_poll(p_plugin_ctx->kafka, 0);
+
 	return 0;
 }
 
 funcOnOutputPluginEvent OnOutputPluginEvent;
-int OnOutputPluginEvent( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+int OnOutputPluginEvent(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context)
 {
 	return 0;
 }
 
-funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin ;
-int BeforeWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
+funcBeforeWriteOutputPlugin BeforeWriteOutputPlugin;
+int BeforeWriteOutputPlugin(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context, uint16_t filename_len, char *filename)
 {
 	return 0;
 }
 
-funcWriteOutputPlugin WriteOutputPlugin ;
-int WriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint64_t file_offset , uint64_t file_line , uint64_t block_len , char *block_buf , uint64_t block_buf_size )
+funcWriteOutputPlugin WriteOutputPlugin;
+int WriteOutputPlugin(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context, uint64_t file_offset, uint64_t file_line, uint64_t block_len, char *block_buf, uint64_t block_buf_size)
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
-	int				nret = 0 ;
-	
-	/* 如果未启用解压 */
-	if( p_plugin_ctx->uncompress_algorithm == NULL )
+	struct OutputPluginContext *p_plugin_ctx = (struct OutputPluginContext *)p_context;
+
+	int nret = 0;
+	char *token = strsep(&block_buf, "\n");
+	size_t token_len = strlen(token);
+	while (token_len != 0 && token != NULL)
 	{
-_GOTO_RETRY_PRODUCE_1 :
-		nret = rd_kafka_produce( p_plugin_ctx->kafka_topic , RD_KAFKA_PARTITION_UA , RD_KAFKA_MSG_F_COPY , block_buf , block_len , NULL , 0 , (void*)p_plugin_ctx ) ;
-		if( nret == -1 )
+		token = strcat(token, "\n");
+		token_len += 1;
+		/* 如果未启用解压 */
+		if (p_plugin_ctx->uncompress_algorithm == NULL)
 		{
-			ERRORLOGC( "rd_kafka_produce block data to topic[%s] failed , last_error[%s]" , rd_kafka_topic_name(p_plugin_ctx->kafka_topic) , rd_kafka_err2str(rd_kafka_last_error()) )
-			if( rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL )
+		_GOTO_RETRY_PRODUCE_1:
+			nret = rd_kafka_produce(p_plugin_ctx->kafka_topic, RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, token, token_len, NULL, 0, (void *)p_plugin_ctx);
+			if (nret == -1)
 			{
-				rd_kafka_poll( p_plugin_ctx->kafka , 1000 );
-				goto _GOTO_RETRY_PRODUCE_1;
-			}
-			return 1;
-		}
-		else
-		{
-			INFOLOGC( "rd_kafka_produce block data to topic[%s] ok , [%d]bytes" , rd_kafka_topic_name(p_plugin_ctx->kafka_topic) , block_len )
-			DEBUGHEXLOGC( block_buf , block_len , NULL )
-		}
-		rd_kafka_poll( p_plugin_ctx->kafka , 0 );
-	}
-	/* 如果启用了解压 */
-	else
-	{
-		if( STRCMP( p_plugin_ctx->uncompress_algorithm , == , "deflate" ) )
-		{
-			char			block_out_buf[ LOGPIPE_OUTPUT_BUFSIZE + 1 ] ;
-			uint64_t		block_out_len ;
-			
-			memset( block_out_buf , 0x00 , sizeof(block_out_buf) );
-			nret = UncompressInputPluginData( p_plugin_ctx->uncompress_algorithm , block_buf , block_len , block_out_buf , & block_out_len , LOGPIPE_OUTPUT_BUFSIZE ) ;
-			if( nret )
-			{
-				ERRORLOGC( "UncompressInputPluginData failed[%d]" , nret )
-				return -1;
-			}
-			else
-			{
-				DEBUGLOGC( "UncompressInputPluginData ok" )
-			}
-			
-_GOTO_RETRY_PRODUCE_2 :
-			nret = rd_kafka_produce( p_plugin_ctx->kafka_topic , RD_KAFKA_PARTITION_UA , RD_KAFKA_MSG_F_COPY , block_out_buf , block_out_len , NULL , 0 , (void*)p_plugin_ctx ) ;
-			if( nret == -1 )
-			{
-				ERRORLOGC( "rd_kafka_produce block data to topic[%s] failed , last_error[%s]" , rd_kafka_topic_name(p_plugin_ctx->kafka_topic) , rd_kafka_err2str(rd_kafka_last_error()) )
-				if( rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL )
+				ERRORLOGC("rd_kafka_produce block data to topic[%s] failed , last_error[%s]", rd_kafka_topic_name(p_plugin_ctx->kafka_topic), rd_kafka_err2str(rd_kafka_last_error()))
+				if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL)
 				{
-					rd_kafka_poll( p_plugin_ctx->kafka , 1000 );
-					goto _GOTO_RETRY_PRODUCE_2;
+					rd_kafka_poll(p_plugin_ctx->kafka, 1000);
+					goto _GOTO_RETRY_PRODUCE_1;
 				}
 				return 1;
 			}
 			else
 			{
-				INFOLOGC( "rd_kafka_produce block data to topic[%s] ok , [%d]bytes" , rd_kafka_topic_name(p_plugin_ctx->kafka_topic) , block_out_len )
-				DEBUGHEXLOGC( block_out_buf , block_out_len , NULL )
+				INFOLOGC("rd_kafka_produce block data to topic[%s] ok , [%d]bytes", rd_kafka_topic_name(p_plugin_ctx->kafka_topic), token_len)
+				DEBUGHEXLOGC(token, token_len, NULL)
 			}
-			rd_kafka_poll( p_plugin_ctx->kafka , 0 );
+			rd_kafka_poll(p_plugin_ctx->kafka, 0);
 		}
+		/* 如果启用了解压 */
 		else
 		{
-			ERRORLOGC( "uncompress_algorithm[%s] invalid" , p_plugin_ctx->uncompress_algorithm )
-			return -1;
+			if (STRCMP(p_plugin_ctx->uncompress_algorithm, ==, "deflate"))
+			{
+				char block_out_buf[LOGPIPE_OUTPUT_BUFSIZE + 1];
+				uint64_t block_out_len;
+
+				memset(block_out_buf, 0x00, sizeof(block_out_buf));
+				nret = UncompressInputPluginData(p_plugin_ctx->uncompress_algorithm, token, token_len, block_out_buf, &block_out_len, LOGPIPE_OUTPUT_BUFSIZE);
+				if (nret)
+				{
+					ERRORLOGC("UncompressInputPluginData failed[%d]", nret)
+					return -1;
+				}
+				else
+				{
+					DEBUGLOGC("UncompressInputPluginData ok")
+				}
+
+			_GOTO_RETRY_PRODUCE_2:
+				nret = rd_kafka_produce(p_plugin_ctx->kafka_topic, RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, block_out_buf, block_out_len, NULL, 0, (void *)p_plugin_ctx);
+				if (nret == -1)
+				{
+					ERRORLOGC("rd_kafka_produce block data to topic[%s] failed , last_error[%s]", rd_kafka_topic_name(p_plugin_ctx->kafka_topic), rd_kafka_err2str(rd_kafka_last_error()))
+					if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL)
+					{
+						rd_kafka_poll(p_plugin_ctx->kafka, 1000);
+						goto _GOTO_RETRY_PRODUCE_2;
+					}
+					return 1;
+				}
+				else
+				{
+					INFOLOGC("rd_kafka_produce block data to topic[%s] ok , [%d]bytes", rd_kafka_topic_name(p_plugin_ctx->kafka_topic), block_out_len)
+					DEBUGHEXLOGC(block_out_buf, block_out_len, NULL)
+				}
+				rd_kafka_poll(p_plugin_ctx->kafka, 0);
+			}
+			else
+			{
+				ERRORLOGC("uncompress_algorithm[%s] invalid", p_plugin_ctx->uncompress_algorithm)
+				return -1;
+			}
+		}
+		token = strsep(&block_buf, "\n");
+		if (token != NULL)
+		{
+			token_len = strlen(token);
 		}
 	}
-	
+
 	return 0;
 }
 
-funcAfterWriteOutputPlugin AfterWriteOutputPlugin ;
-int AfterWriteOutputPlugin( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context , uint16_t filename_len , char *filename )
+funcAfterWriteOutputPlugin AfterWriteOutputPlugin;
+int AfterWriteOutputPlugin(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context, uint16_t filename_len, char *filename)
 {
 	return 0;
 }
 
-funcCleanOutputPluginContext CleanOutputPluginContext ;
-int CleanOutputPluginContext( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void *p_context )
+funcCleanOutputPluginContext CleanOutputPluginContext;
+int CleanOutputPluginContext(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void *p_context)
 {
-	struct OutputPluginContext	*p_plugin_ctx = (struct OutputPluginContext *)p_context ;
-	
+	struct OutputPluginContext *p_plugin_ctx = (struct OutputPluginContext *)p_context;
+
 #ifdef _WITH_ZOOKEEPER
-	zookeeper_close( p_plugin_ctx->zh );
+	zookeeper_close(p_plugin_ctx->zh);
 #endif
-	
-	rd_kafka_flush( p_plugin_ctx->kafka , 10*1000 );
-	
-	rd_kafka_topic_destroy( p_plugin_ctx->kafka_topic );
-	
-	rd_kafka_destroy( p_plugin_ctx->kafka );
-	
+
+	rd_kafka_flush(p_plugin_ctx->kafka, 10 * 1000);
+
+	rd_kafka_topic_destroy(p_plugin_ctx->kafka_topic);
+
+	rd_kafka_destroy(p_plugin_ctx->kafka);
+
 	return 0;
 }
 
-funcUnloadOutputPluginConfig UnloadOutputPluginConfig ;
-int UnloadOutputPluginConfig( struct LogpipeEnv *p_env , struct LogpipeOutputPlugin *p_logpipe_output_plugin , void **pp_context )
+funcUnloadOutputPluginConfig UnloadOutputPluginConfig;
+int UnloadOutputPluginConfig(struct LogpipeEnv *p_env, struct LogpipeOutputPlugin *p_logpipe_output_plugin, void **pp_context)
 {
-	struct OutputPluginContext	**pp_plugin_ctx = (struct OutputPluginContext **)pp_context ;
-	
+	struct OutputPluginContext **pp_plugin_ctx = (struct OutputPluginContext **)pp_context;
+
 	/* 释放内存以存放插件上下文 */
-	free( (*pp_plugin_ctx) ); (*pp_plugin_ctx) = NULL ;
-	
+	free((*pp_plugin_ctx));
+	(*pp_plugin_ctx) = NULL;
+
 	return 0;
 }
-
